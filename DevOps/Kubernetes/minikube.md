@@ -29,14 +29,23 @@ sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 # Enable and start Docker
 sudo systemctl enable --now docker
 
-# Allow non-root docker usage (you must log out and back in or run `newgrp docker`)
+# Allow non-root docker usage
 sudo usermod -aG docker $USER
+
+# IMPORTANT: Apply group membership by logging out and back in, or run:
+newgrp docker
+
+# Verify Docker works without sudo
+docker run hello-world
 ```
 
-## 4 — (Optional) Install kubectl
+**Note:** If the Docker verification fails, you must log out and log back in for the group membership to take effect. Do not proceed until `docker run hello-world` works without sudo.
+
+## 4 — Install kubectl (required for verification)
 ```bash
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+kubectl version --client
 rm kubectl
 ```
 
@@ -44,18 +53,17 @@ rm kubectl
 ```bash
 curl -Lo minikube-linux-amd64 https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
 sudo install minikube-linux-amd64 /usr/local/bin/minikube
+minikube version
 rm minikube-linux-amd64
 ```
 
 ## 6 — Start Minikube (docker driver)
-If you added your user to the `docker` group and re-logged in:
+Ensure Docker works without sudo (Step 3 verification passed), then start Minikube:
 ```bash
 minikube start --driver=docker --cpus=2 --memory=4096 --disk-size=20g
 ```
-Otherwise run with sudo:
-```bash
-sudo minikube start --driver=docker --cpus=2 --memory=4096 --disk-size=20g
-```
+
+**Important:** Do not run Minikube with sudo, as it will create permission issues. If you get Docker permission errors, return to Step 3 and ensure the Docker group membership is properly applied.
 
 ## 7 — Verify cluster
 ```bash
@@ -74,7 +82,8 @@ kubectl config use-context minikube
 ```
 
 ## Troubleshooting notes
-- cgroup errors: ensure container runtime and host use compatible cgroup settings (systemd cgroup is preferred). Adjust container runtime or pass Minikube flags such as `--container-runtime=containerd` if needed.
-- After adding your user to the `docker` group, log out and back in or run `newgrp docker` to apply the group change.
+- **Docker permission denied**: If you see "permission denied" errors when running Docker or Minikube, your Docker group membership hasn't been applied. Log out and back in, or run `newgrp docker` in your current shell.
+- **cgroup errors**: Ensure container runtime and host use compatible cgroup settings (systemd cgroup is preferred). Adjust container runtime or pass Minikube flags such as `--container-runtime=containerd` if needed.
+- **Minikube won't start**: Do not run Minikube with sudo. Ensure `docker run hello-world` works without sudo first.
 - On headless VMs without nested virtualization or unsupported hypervisors, the Docker driver is typically the most reliable.
 - If `minikube start` fails, inspect `minikube logs` and `journalctl -u docker` for details.
