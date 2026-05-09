@@ -1,3 +1,8 @@
+# VSCode extensions list
+- eamodio.gitlens (v17.12.2)
+- github.vscode-pull-request-github (v0.142.0)
+- ms-azuretools.vscode-containers (v2.4.4)
+- ms-vscode.vscode-chat-customizations-evaluations (v1.0.2)
 - bierner.markdown-mermaid-1.32.0
 - codezombiech.gitignore-0.10.0
 - docker.docker-0.18.0-linux-x64
@@ -42,7 +47,6 @@
 - ms-python.vscode-python-envs-1.30.0-linux-x64
 - ms-ossdata.vscode-pgsql-1.20.0-linux-x64
 - ms-ossdata.vscode-pgsql-1.22.0-linux-x64
-- eamodio.gitlens (v17.12.2)
-- github.vscode-pull-request-github (v0.142.0)
-- ms-azuretools.vscode-containers (v2.4.4)
-- ms-vscode.vscode-chat-customizations-evaluations (v1.0.2)
+
+# Python first commands
+'sudo apt install python3-venv python3-pip'
