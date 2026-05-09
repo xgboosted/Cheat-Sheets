@@ -1,0 +1,48 @@
+- bierner.markdown-mermaid-1.32.0
+- codezombiech.gitignore-0.10.0
+- docker.docker-0.18.0-linux-x64
+- dorianmassoulier.repomix-runner-0.5.0
+- george-alisson.html-preview-vscode-0.2.5
+- github.vscode-github-actions-0.31.5
+- grafana.grafana-vscode-0.0.19
+- hashicorp.terraform-2.39.2-linux-x64
+- jebbs.plantuml-2.18.1
+- mechatroner.rainbow-csv-3.24.1
+- mhutchie.git-graph-1.30.0
+- ms-azuretools.vscode-containers-2.4.3
+- ms-azuretools.vscode-docker-2.0.0
+- ms-kubernetes-tools.vscode-kubernetes-tools-1.3.29
+- ms-python.debugpy-2026.6.0-linux-x64
+- ms-python.python-2026.4.0-linux-x64
+- ms-python.vscode-pylance-2026.2.1
+- ms-toolsai.datawrangler-1.24.1
+- ms-toolsai.jupyter-keymap-1.1.2
+- ms-toolsai.jupyter-renderers-1.3.0
+- ms-toolsai.jupyter-2025.9.1-linux-x64
+- ms-toolsai.vscode-jupyter-cell-tags-0.1.9
+- ms-toolsai.vscode-jupyter-slideshow-0.1.6
+- ms-vscode-remote.remote-ssh-0.122.0
+- ms-vscode-remote.remote-wsl-0.104.3
+- ms-vscode-remote.vscode-remote-extensionpack-0.26.0
+- ms-vscode-remote.remote-ssh-edit-0.87.0
+- ms-vscode.remote-server-1.5.3
+- ms-vscode.remote-explorer-0.5.0
+- ms-vscode.vscode-speech-0.16.0-linux-x64
+- pomdtr.excalidraw-editor-3.9.1
+- tomoki1207.pdf-1.2.2
+- yzhang.markdown-all-in-one-3.6.3
+- redhat.vscode-yaml-1.22.0
+- redhat.vscode-yaml-1.23.0
+- github.vscode-pull-request-github-0.140.0
+- timonwong.shellcheck-0.39.3-linux-x64
+- timonwong.shellcheck-0.39.4-linux-x64
+- ms-vscode-remote.remote-containers-0.457.0
+- ms-vscode-remote.remote-containers-0.459.0
+- ms-python.vscode-python-envs-1.28.0-linux-x64
+- ms-python.vscode-python-envs-1.30.0-linux-x64
+- ms-ossdata.vscode-pgsql-1.20.0-linux-x64
+- ms-ossdata.vscode-pgsql-1.22.0-linux-x64
+- eamodio.gitlens (v17.12.2)
+- github.vscode-pull-request-github (v0.142.0)
+- ms-azuretools.vscode-containers (v2.4.4)
+- ms-vscode.vscode-chat-customizations-evaluations (v1.0.2)
