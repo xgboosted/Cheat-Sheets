@@ -49,4 +49,4 @@
 - ms-ossdata.vscode-pgsql-1.22.0-linux-x64
 
 # Python first commands
-'sudo apt install python3-venv python3-pip'
+`sudo apt install python3-venv python3-pip`
