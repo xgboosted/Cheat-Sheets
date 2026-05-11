@@ -69,7 +69,7 @@ install_deb_from_url_prompt() {
   fi
 
   run_shell "Download ${label} .deb" "wget -O '${deb_path}' '${url}'"
-  run_shell "Install ${label} .deb" "sudo dpkg -i '${deb_path}' || sudo apt-get -f install -y"
+  run_shell "Install ${label} .deb" "sudo dpkg -i '${deb_path}'; sudo apt-get -f install -y"
 }
 
 ask_step() {
@@ -304,16 +304,7 @@ step_16_brave() {
   fi
 }
 
-step_17_users_parental() {
-  run_cmd "Install parental control helper (timekpr-next)" sudo apt-get -y install timekpr-next
-  if command -v users-admin >/dev/null 2>&1; then
-    run_cmd "Open Users and Groups" users-admin
-  else
-    msg "Open Users and Groups manually from menu."
-  fi
-}
-
-step_18_fonts() {
+step_17_fonts() {
   if ! command -v debconf-set-selections >/dev/null 2>&1; then
     run_cmd "Install debconf-utils" sudo apt-get -y install debconf-utils
   fi
@@ -322,9 +313,12 @@ step_18_fonts() {
   run_shell "Install Microsoft core fonts" "sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ttf-mscorefonts-installer"
 }
 
-step_19_stacer() {
+step_18_stacer() {
   msg "Stacer install via GitHub release .deb (QuentiumYT/Stacer)."
   msg "Reference: https://github.com/QuentiumYT/Stacer"
+
+  run_cmd "Install Stacer Qt5 runtime dependencies" sudo apt-get -y install \
+    libqt5widgets5 libqt5charts5 libqt5network5 libqt5dbus5
 
   local api_url="https://api.github.com/repos/QuentiumYT/Stacer/releases/latest"
   local deb_url
@@ -340,17 +334,17 @@ step_19_stacer() {
   install_deb_from_url_prompt "stacer" "$deb_url"
 }
 
-step_20_ulauncher() {
+step_19_ulauncher() {
   run_cmd "Add Ulauncher PPA" sudo add-apt-repository -y ppa:agornostal/ulauncher
   run_cmd "apt update" sudo apt-get update
   run_cmd "Install Ulauncher" sudo apt-get -y install ulauncher
 }
 
-step_21_clipboard_manager() {
+step_20_clipboard_manager() {
   run_cmd "Install CopyQ" sudo apt-get -y install copyq
 }
 
-step_22_timeshift() {
+step_21_timeshift() {
   run_cmd "Install Timeshift" sudo apt-get -y install timeshift
   msg "Timeshift installed. Launching GUI (requires sudo)..."
   if command -v timeshift-gtk >/dev/null 2>&1; then
@@ -360,12 +354,12 @@ step_22_timeshift() {
   fi
 }
 
-step_23_backup_personal() {
+step_22_backup_personal() {
   run_cmd "Install backup apps (Pika Backup, luckyBackup)" sudo apt-get -y install pika-backup luckybackup
   msg "Set 3-2-1 backup policy manually after install."
 }
 
-step_24_dropbox() {
+step_23_dropbox() {
   msg "Dropbox install via official apt repo."
   msg "Reference: https://www.dropbox.com/install-linux"
 
@@ -378,7 +372,7 @@ step_24_dropbox() {
   msg "Start Dropbox: dropbox start -i"
 }
 
-step_25_expandrive() {
+step_24_expandrive() {
   msg "ExpanDrive install via .deb download."
   msg "Reference: https://www.expandrive.com/download"
 
@@ -414,15 +408,14 @@ main() {
 
   # Apps (including Sync & Backup)
   if ask_step "16) Install Brave browser"; then step_16_brave || msg "WARN: step failed, continuing."; fi
-  if ask_step "17) Additional users and parental control"; then step_17_users_parental || msg "WARN: step failed, continuing."; fi
-  if ask_step "18) Install additional fonts"; then step_18_fonts || msg "WARN: step failed, continuing."; fi
-  if ask_step "19) Install Stacer"; then step_19_stacer || msg "WARN: step failed, continuing."; fi
-  if ask_step "20) Install Ulauncher"; then step_20_ulauncher || msg "WARN: step failed, continuing."; fi
-  if ask_step "21) Install clipboard manager"; then step_21_clipboard_manager || msg "WARN: step failed, continuing."; fi
-  if ask_step "22) Set up Timeshift"; then step_22_timeshift || msg "WARN: step failed, continuing."; fi
-  if ask_step "23) Set backup strategy for personal files"; then step_23_backup_personal || msg "WARN: step failed, continuing."; fi
-  if ask_step "24) Install Dropbox"; then step_24_dropbox || msg "WARN: step failed, continuing."; fi
-  if ask_step "25) Install ExpanDrive"; then step_25_expandrive || msg "WARN: step failed, continuing."; fi
+  if ask_step "17) Install additional fonts"; then step_17_fonts || msg "WARN: step failed, continuing."; fi
+  if ask_step "18) Install Stacer"; then step_18_stacer || msg "WARN: step failed, continuing."; fi
+  if ask_step "19) Install Ulauncher"; then step_19_ulauncher || msg "WARN: step failed, continuing."; fi
+  if ask_step "20) Install clipboard manager"; then step_20_clipboard_manager || msg "WARN: step failed, continuing."; fi
+  if ask_step "21) Set up Timeshift"; then step_21_timeshift || msg "WARN: step failed, continuing."; fi
+  if ask_step "22) Set backup strategy for personal files"; then step_22_backup_personal || msg "WARN: step failed, continuing."; fi
+  if ask_step "23) Install Dropbox"; then step_23_dropbox || msg "WARN: step failed, continuing."; fi
+  if ask_step "24) Install ExpanDrive"; then step_24_expandrive || msg "WARN: step failed, continuing."; fi
 
   msg "All steps processed."
 }
