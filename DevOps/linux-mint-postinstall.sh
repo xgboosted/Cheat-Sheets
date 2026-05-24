@@ -164,7 +164,7 @@ step_05_wifi_firmware() {
 step_06_codecs() {
   run_cmd "Install multimedia codecs" sudo apt-get -y install mint-meta-codecs
   run_cmd "Install Mesa utils and Intel VAAPI driver" sudo apt-get -y install mesa-utils intel-media-va-driver-non-free vainfo
-  run_cmd "Install Intel VAAPI drivers (all variants)" sudo apt-get -y install intel-media-va-driver-non-free i965-va-driver vainfo
+  run_cmd "Install Intel VAAPI drivers (legacy i965)" sudo apt-get -y install i965-va-driver
 }
 
 step_07_swappiness() {
@@ -264,7 +264,75 @@ step_13_vscode() {
   run_cmd "Install VS Code" sudo apt-get -y install code
 }
 
-step_14_dbeaver() {
+step_14_vscode_extensions() {
+  msg "Install VSCode extensions (currently installed set)."
+
+  if ! command -v code >/dev/null 2>&1; then
+    msg "VS Code (code) not found in PATH. Install VS Code first (Step 13)."
+    return 1
+  fi
+
+  local extensions=(
+    bierner.markdown-mermaid
+    codezombiech.gitignore
+    docker.docker
+    eamodio.gitlens
+    fedaykindev.openchamber
+    george-alisson.html-preview-vscode
+    github.vscode-github-actions
+    github.vscode-pull-request-github
+    grafana.grafana-vscode
+    hashicorp.terraform
+    jebbs.plantuml
+    mechatroner.rainbow-csv
+    mhutchie.git-graph
+    ms-azuretools.vscode-containers
+    ms-azuretools.vscode-docker
+    ms-kubernetes-tools.vscode-kubernetes-tools
+    ms-python.debugpy
+    ms-python.python
+    ms-python.vscode-pylance
+    ms-python.vscode-python-envs
+    ms-toolsai.datawrangler
+    ms-toolsai.jupyter
+    ms-toolsai.jupyter-keymap
+    ms-toolsai.jupyter-renderers
+    ms-toolsai.vscode-jupyter-cell-tags
+    ms-toolsai.vscode-jupyter-slideshow
+    ms-vscode-remote.remote-containers
+    ms-vscode-remote.remote-ssh
+    ms-vscode-remote.remote-ssh-edit
+    ms-vscode-remote.vscode-remote-extensionpack
+    ms-vscode.remote-explorer
+    ms-vscode.remote-server
+    ms-vscode.vscode-chat-customizations-evaluations
+    ms-vscode.vscode-speech
+    pomdtr.excalidraw-editor
+    redhat.vscode-yaml
+    timonwong.shellcheck
+    tomoki1207.pdf
+    vizards.deepseek-v4-for-copilot
+    yzhang.markdown-all-in-one
+  )
+
+  local failed=()
+  for ext in "${extensions[@]}"; do
+    if code --install-extension "$ext" >>"$LOG_FILE" 2>&1; then
+      msg "  installed: ${ext}"
+    else
+      msg "  FAILED:   ${ext}"
+      failed+=("$ext")
+    fi
+  done
+
+  if ((${#failed[@]} > 0)); then
+    msg "WARN: ${#failed[@]} extension(s) failed: ${failed[*]}"
+  else
+    msg "All ${#extensions[@]} extensions installed."
+  fi
+}
+
+step_15_dbeaver() {
   msg "DBeaver Community install via official apt repo."
   msg "Reference: https://dbeaver.io/download/"
 
@@ -276,12 +344,12 @@ step_14_dbeaver() {
   run_cmd "Install DBeaver Community" sudo apt-get -y install dbeaver-ce
 }
 
-step_15_flatseal() {
+step_16_flatseal() {
   run_cmd "Add Flathub repo" sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
   run_cmd "Install Flatseal" sudo flatpak install -y flathub com.github.tchx84.Flatseal
 }
 
-step_16_brave() {
+step_17_brave() {
   msg "Brave browser install via apt."
   msg "Reference: https://brave.com/linux/"
 
@@ -304,7 +372,7 @@ step_16_brave() {
   fi
 }
 
-step_17_fonts() {
+step_18_fonts() {
   if ! command -v debconf-set-selections >/dev/null 2>&1; then
     run_cmd "Install debconf-utils" sudo apt-get -y install debconf-utils
   fi
@@ -313,7 +381,7 @@ step_17_fonts() {
   run_shell "Install Microsoft core fonts" "sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ttf-mscorefonts-installer"
 }
 
-step_18_stacer() {
+step_19_stacer() {
   msg "Stacer install via GitHub release .deb (QuentiumYT/Stacer)."
   msg "Reference: https://github.com/QuentiumYT/Stacer"
 
@@ -334,17 +402,17 @@ step_18_stacer() {
   install_deb_from_url_prompt "stacer" "$deb_url"
 }
 
-step_19_ulauncher() {
+step_20_ulauncher() {
   run_cmd "Add Ulauncher PPA" sudo add-apt-repository -y ppa:agornostal/ulauncher
   run_cmd "apt update" sudo apt-get update
   run_cmd "Install Ulauncher" sudo apt-get -y install ulauncher
 }
 
-step_20_clipboard_manager() {
+step_21_clipboard_manager() {
   run_cmd "Install CopyQ" sudo apt-get -y install copyq
 }
 
-step_21_timeshift() {
+step_22_timeshift() {
   run_cmd "Install Timeshift" sudo apt-get -y install timeshift
   msg "Timeshift installed. Launching GUI (requires sudo)..."
   if command -v timeshift-gtk >/dev/null 2>&1; then
@@ -354,25 +422,25 @@ step_21_timeshift() {
   fi
 }
 
-step_22_backup_personal() {
+step_23_backup_personal() {
   run_cmd "Install backup apps (Pika Backup, luckyBackup)" sudo apt-get -y install pika-backup luckybackup
   msg "Set 3-2-1 backup policy manually after install."
 }
 
-step_23_dropbox() {
+step_24_dropbox() {
   msg "Dropbox install via official apt repo."
   msg "Reference: https://www.dropbox.com/install-linux"
 
   run_shell "Import Dropbox GPG key" \
     "curl -fsSL https://linux.dropboxstatic.com/ubuntu/debian/apt.dropbox.com.asc | sudo gpg --dearmor -o /usr/share/keyrings/dropbox.gpg"
   run_shell "Add Dropbox apt repo" \
-    "echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/dropbox.gpg] https://linux.dropboxstatic.com/ubuntu focal main' | sudo tee /etc/apt/sources.list.d/dropbox.list >/dev/null"
+    "echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/dropbox.gpg] https://linux.dropboxstatic.com/ubuntu noble main' | sudo tee /etc/apt/sources.list.d/dropbox.list >/dev/null"
   run_cmd "apt update" sudo apt-get update
   run_cmd "Install Dropbox" sudo apt-get -y install dropbox
   msg "Start Dropbox: dropbox start -i"
 }
 
-step_24_expandrive() {
+step_25_expandrive() {
   msg "ExpanDrive install via .deb download."
   msg "Reference: https://www.expandrive.com/download"
 
@@ -403,19 +471,20 @@ main() {
   if ask_step "11) Python dev environment (pip, venv)"; then step_11_python_dev_env || msg "WARN: step failed, continuing."; fi
   if ask_step "12) Install basic software"; then step_12_basic_software || msg "WARN: step failed, continuing."; fi
   if ask_step "13) Install VS Code"; then step_13_vscode || msg "WARN: step failed, continuing."; fi
-  if ask_step "14) Install DBeaver (database client)"; then step_14_dbeaver || msg "WARN: step failed, continuing."; fi
-  if ask_step "15) Install Flatseal (flatpak permissions)"; then step_15_flatseal || msg "WARN: step failed, continuing."; fi
+  if ask_step "14) Install VSCode extensions"; then step_14_vscode_extensions || msg "WARN: step failed, continuing."; fi
+  if ask_step "15) Install DBeaver (database client)"; then step_15_dbeaver || msg "WARN: step failed, continuing."; fi
+  if ask_step "16) Install Flatseal (flatpak permissions)"; then step_16_flatseal || msg "WARN: step failed, continuing."; fi
 
   # Apps (including Sync & Backup)
-  if ask_step "16) Install Brave browser"; then step_16_brave || msg "WARN: step failed, continuing."; fi
-  if ask_step "17) Install additional fonts"; then step_17_fonts || msg "WARN: step failed, continuing."; fi
-  if ask_step "18) Install Stacer"; then step_18_stacer || msg "WARN: step failed, continuing."; fi
-  if ask_step "19) Install Ulauncher"; then step_19_ulauncher || msg "WARN: step failed, continuing."; fi
-  if ask_step "20) Install clipboard manager"; then step_20_clipboard_manager || msg "WARN: step failed, continuing."; fi
-  if ask_step "21) Set up Timeshift"; then step_21_timeshift || msg "WARN: step failed, continuing."; fi
-  if ask_step "22) Set backup strategy for personal files"; then step_22_backup_personal || msg "WARN: step failed, continuing."; fi
-  if ask_step "23) Install Dropbox"; then step_23_dropbox || msg "WARN: step failed, continuing."; fi
-  if ask_step "24) Install ExpanDrive"; then step_24_expandrive || msg "WARN: step failed, continuing."; fi
+  if ask_step "17) Install Brave browser"; then step_17_brave || msg "WARN: step failed, continuing."; fi
+  if ask_step "18) Install additional fonts"; then step_18_fonts || msg "WARN: step failed, continuing."; fi
+  if ask_step "19) Install Stacer"; then step_19_stacer || msg "WARN: step failed, continuing."; fi
+  if ask_step "20) Install Ulauncher"; then step_20_ulauncher || msg "WARN: step failed, continuing."; fi
+  if ask_step "21) Install clipboard manager"; then step_21_clipboard_manager || msg "WARN: step failed, continuing."; fi
+  if ask_step "22) Set up Timeshift"; then step_22_timeshift || msg "WARN: step failed, continuing."; fi
+  if ask_step "23) Set backup strategy for personal files"; then step_23_backup_personal || msg "WARN: step failed, continuing."; fi
+  if ask_step "24) Install Dropbox"; then step_24_dropbox || msg "WARN: step failed, continuing."; fi
+  if ask_step "25) Install ExpanDrive"; then step_25_expandrive || msg "WARN: step failed, continuing."; fi
 
   msg "All steps processed."
 }
