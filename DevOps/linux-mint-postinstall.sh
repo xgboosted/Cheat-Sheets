@@ -403,9 +403,12 @@ step_19_stacer() {
 }
 
 step_20_ulauncher() {
+  run_cmd "Install software-properties-common (for add-apt-repository)" sudo apt-get -y install software-properties-common
   run_cmd "Add Ulauncher PPA" sudo add-apt-repository -y ppa:agornostal/ulauncher
   run_cmd "apt update" sudo apt-get update
   run_cmd "Install Ulauncher" sudo apt-get -y install ulauncher
+  msg "Ulauncher installed. Start with: ulauncher --hide-window"
+  msg "Add to Startup Applications for auto-launch on login."
 }
 
 step_21_clipboard_manager() {
