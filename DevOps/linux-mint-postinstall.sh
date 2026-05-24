@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -u
-set -e
 
 # Linux Mint post-install helper based on:
 # https://www.reallinuxuser.com/21-best-things-to-do-after-installing-linux-mint/
@@ -8,7 +7,7 @@ set -e
 # Behavior:
 # - Runs actions in logical order: hardware → OS settings → dev tools → apps → sync/backup
 # - Prompts per step: run, skip, quit.
-# - Aborts on first failure.
+# - Fails individually per step, continues to next step. All errors logged.
 
 LOG_FILE="${HOME}/linux-mint-postinstall.log"
 _ctrl_c_count=0
@@ -23,7 +22,7 @@ handle_sigint() {
 }
 trap handle_sigint INT
 
-msg() { printf "\n[%s] %s\n" "$(date '+%F %T')" "$*" | tee -a "$LOG_FILE"; }
+msg() { printf "\n[%s] %s\n" "$(date '+%F %T')" "$*" | tee -a "$LOG_FILE" 2>/dev/null || true; }
 
 run_cmd() {
   local desc="$1"
@@ -68,8 +67,8 @@ install_deb_from_url_prompt() {
     return 1
   fi
 
-  run_shell "Download ${label} .deb" "wget -O '${deb_path}' '${url}'"
-  run_shell "Install ${label} .deb" "sudo dpkg -i '${deb_path}'; sudo apt-get -f install -y"
+  run_shell "Download ${label} .deb" "wget -O '${deb_path}' '${url}'" || return 1
+  run_shell "Install ${label} .deb" "sudo dpkg -i '${deb_path}'; sudo apt-get -f install -y" || return 1
 }
 
 ask_step() {
@@ -90,18 +89,18 @@ ask_step() {
 step_01_mirrors() {
   msg "Open Software Sources to pick nearby mirrors for Main and Base."
   if command -v mintsources >/dev/null 2>&1; then
-    run_cmd "Open mintsources" mintsources
+    run_cmd "Open mintsources" mintsources || true
   elif command -v software-sources >/dev/null 2>&1; then
-    run_cmd "Open software-sources" software-sources
+    run_cmd "Open software-sources" software-sources || true
   else
     msg "No mirror GUI tool found. Open Update Manager > Edit > Software Sources manually."
   fi
 }
 
 step_02_update_upgrade() {
-  run_cmd "apt update" sudo apt-get update
-  run_cmd "apt full upgrade" sudo apt-get -y full-upgrade
-  run_cmd "Install foundational tools" sudo apt-get -y install curl wget flatpak
+  run_cmd "apt update" sudo apt-get update || return 1
+  run_cmd "apt full upgrade" sudo apt-get -y full-upgrade || return 1
+  run_cmd "Install foundational tools" sudo apt-get -y install curl wget flatpak || return 1
 }
 
 step_03_microcode() {
@@ -109,23 +108,23 @@ step_03_microcode() {
   vendor="$(grep -m1 'vendor_id' /proc/cpuinfo | awk '{print $3}')"
   case "$vendor" in
     GenuineIntel)
-      run_cmd "Install Intel microcode" sudo apt-get -y install intel-microcode
+      run_cmd "Install Intel microcode" sudo apt-get -y install intel-microcode || return 1
       ;;
     AuthenticAMD)
-      run_cmd "Install AMD microcode" sudo apt-get -y install amd64-microcode
+      run_cmd "Install AMD microcode" sudo apt-get -y install amd64-microcode || return 1
       ;;
     *)
       msg "Unknown CPU vendor (${vendor}). Install microcode manually if needed."
       ;;
   esac
-  run_shell "Check microcode in dmesg" "dmesg | grep -i microcode | tail -n 5"
+  run_shell "Check microcode in dmesg" "dmesg | grep -i microcode | tail -n 5" || true
 }
 
 step_04_drivers() {
   if command -v driver-manager >/dev/null 2>&1; then
-    run_cmd "Open driver-manager" driver-manager
+    run_cmd "Open driver-manager" driver-manager || true
   elif command -v mintdrivers >/dev/null 2>&1; then
-    run_cmd "Open mintdrivers" mintdrivers
+    run_cmd "Open mintdrivers" mintdrivers || true
   else
     msg "Driver manager not found. Open Driver Manager manually from menu."
   fi
@@ -135,22 +134,22 @@ step_05_wifi_firmware() {
   msg "WiFi firmware update (iwlwifi drivers, BE201 support)."
   msg "Checks dmesg for missing firmware, installs via apt, updates initramfs."
 
-  run_shell "Check dmesg for iwlwifi errors" "dmesg | grep -i iwlwifi | tail -10"
+  run_shell "Check dmesg for iwlwifi errors" "dmesg | grep -i iwlwifi | tail -10" || true
 
   printf "Install/update iwlwifi firmware via apt (firmware-iwlwifi + linux-firmware)? [y/N]: "
-  read -r yn
+  read -r yn || true
   if [[ "${yn,,}" == "y" ]]; then
-    run_cmd "Install firmware-iwlwifi and linux-firmware" sudo apt-get -y install firmware-iwlwifi linux-firmware
+    run_cmd "Install firmware-iwlwifi and linux-firmware" sudo apt-get -y install firmware-iwlwifi linux-firmware || return 1
     msg "Firmware packages installed."
 
     printf "Update kernel initramfs to include new firmware? [y/N]: "
-    read -r ib
+    read -r ib || true
     if [[ "${ib,,}" == "y" ]]; then
-      run_cmd "Update initramfs" sudo update-initramfs -u
+      run_cmd "Update initramfs" sudo update-initramfs -u || return 1
       msg "Initramfs updated. WiFi firmware now part of boot image."
 
       printf "Reboot now to apply changes? [y/N]: "
-      read -r rb
+    read -r rb || true
       if [[ "${rb,,}" == "y" ]]; then
         msg "Rebooting..."
         sudo reboot
@@ -162,33 +161,33 @@ step_05_wifi_firmware() {
 }
 
 step_06_codecs() {
-  run_cmd "Install multimedia codecs" sudo apt-get -y install mint-meta-codecs
-  run_cmd "Install Mesa utils and Intel VAAPI driver" sudo apt-get -y install mesa-utils intel-media-va-driver-non-free vainfo
-  run_cmd "Install Intel VAAPI drivers (legacy i965)" sudo apt-get -y install i965-va-driver
+  run_cmd "Install multimedia codecs" sudo apt-get -y install mint-meta-codecs || return 1
+  run_cmd "Install Mesa utils and Intel VAAPI driver" sudo apt-get -y install mesa-utils intel-media-va-driver-non-free vainfo || return 1
+  run_cmd "Install Intel VAAPI drivers (legacy i965)" sudo apt-get -y install i965-va-driver || return 1
 }
 
 step_07_swappiness() {
-  run_shell "Set vm.swappiness=10" "echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf"
-  run_cmd "Apply sysctl settings" sudo sysctl --system
-  run_shell "Verify swappiness" "cat /proc/sys/vm/swappiness"
+  run_shell "Set vm.swappiness=10" "echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf" || return 1
+  run_cmd "Apply sysctl settings" sudo sysctl --system || return 1
+  run_shell "Verify swappiness" "cat /proc/sys/vm/swappiness" || return 1
 }
 
 step_08_firewall() {
-  run_cmd "Install ufw" sudo apt-get -y install ufw
-  run_cmd "Set ufw default deny incoming" sudo ufw default deny incoming
-  run_cmd "Set ufw default allow outgoing" sudo ufw default allow outgoing
-  run_cmd "Enable ufw" sudo ufw --force enable
-  run_cmd "Show ufw status" sudo ufw status verbose
+  run_cmd "Install ufw" sudo apt-get -y install ufw || return 1
+  run_cmd "Set ufw default deny incoming" sudo ufw default deny incoming || return 1
+  run_cmd "Set ufw default allow outgoing" sudo ufw default allow outgoing || return 1
+  run_cmd "Enable ufw" sudo ufw --force enable || return 1
+  run_cmd "Show ufw status" sudo ufw status verbose || return 1
 }
 
 step_09_fractional_scaling() {
   msg "This step is GUI/manual."
   msg "Open System Settings > Display > enable fractional scaling controls, then set preferred scale."
   if command -v cinnamon-settings >/dev/null 2>&1; then
-    msg "Opening Display settings (detached from terminal)..."
-    setsid cinnamon-settings display >/dev/null 2>&1 &
+    msg "Opening Display settings..."
+    cinnamon-settings display || true
   elif command -v gnome-control-center >/dev/null 2>&1; then
-    setsid gnome-control-center display >/dev/null 2>&1 &
+    gnome-control-center display || true
   else
     msg "No display settings tool found. Open System Settings > Display manually."
   fi
@@ -197,58 +196,58 @@ step_09_fractional_scaling() {
 step_10_git_config() {
   msg "Install and configure Git globally."
 
-  run_cmd "Install git" sudo apt-get -y install git
+  run_cmd "Install git" sudo apt-get -y install git || return 1
 
   printf "Set git user.email (e.g., user@example.com): "
-  read -r git_email
+  read -r git_email || true
   if [[ -n "${git_email}" ]]; then
-    run_shell "Set git user.email" "git config --global user.email '${git_email}'"
+    run_cmd "Set git user.email" git config --global user.email "${git_email}" || return 1
   fi
 
   printf "Set git user.name (e.g., Your Name): "
-  read -r git_name
+  read -r git_name || true
   if [[ -n "${git_name}" ]]; then
-    run_shell "Set git user.name" "git config --global user.name '${git_name}'"
+    run_cmd "Set git user.name" git config --global user.name "${git_name}" || return 1
   fi
 
   printf "Set git default branch to main? [y/N]: "
-  read -r yn
+  read -r yn || true
   if [[ "${yn,,}" == "y" ]]; then
-    run_shell "Set git default branch" "git config --global init.defaultBranch main"
+    run_cmd "Set git default branch" git config --global init.defaultBranch main || return 1
   fi
 
-  run_shell "Show git config" "git config --global --list | grep -E 'user|init'"
+  run_cmd "Show git config" git config --global --list || true
 }
 
 step_11_python_dev_env() {
   msg "Python 3 development environment setup (Python first per GitHub cheat sheet)."
   
   # Python first requirement
-  run_cmd "Install Python venv & pip" sudo apt-get install -y python3-venv python3-pip
+  run_cmd "Install Python venv & pip" sudo apt-get install -y python3-venv python3-pip || return 1
   
   printf "Install build tools & dev packages? [y/N]: "
-  read -r yn
+  read -r yn || true
   if [[ "${yn,,}" == "y" ]]; then
-    run_cmd "Install build tools" sudo apt-get install -y build-essential python3-dev libssl-dev libffi-dev
+    run_cmd "Install build tools" sudo apt-get install -y build-essential python3-dev libssl-dev libffi-dev || return 1
   fi
 
   printf "Install Poetry package manager? [y/N]: "
-  read -r yn
+  read -r yn || true
   if [[ "${yn,,}" == "y" ]]; then
-    run_cmd "Install Poetry" sudo apt-get install -y poetry
+    run_cmd "Install Poetry" sudo apt-get install -y poetry || return 1
   fi
 
   msg "Python environment ready. Use: python3 -m venv <env_name>"
 }
 
 step_12_basic_software() {
-  run_cmd "Install basic software set" sudo apt-get -y install vlc flameshot neofetch htop
+  run_cmd "Install basic software set" sudo apt-get -y install vlc flameshot neofetch htop || return 1
 
   printf "Install OnlyOffice via Flatpak? [y/N]: "
-  read -r yn
+  read -r yn || true
   if [[ "${yn,,}" == "y" ]]; then
-    run_cmd "Add Flathub repo" sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-    run_cmd "Install OnlyOffice via Flatpak" sudo flatpak install -y flathub org.onlyoffice.desktopeditors
+    run_cmd "Add Flathub repo" sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo || return 1
+    run_cmd "Install OnlyOffice via Flatpak" sudo flatpak install -y flathub org.onlyoffice.desktopeditors || return 1
   fi
 }
 
@@ -257,11 +256,11 @@ step_13_vscode() {
   msg "Reference: https://code.visualstudio.com/docs/setup/linux"
 
   run_shell "Import Microsoft GPG key" \
-    "curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | sudo tee /usr/share/keyrings/microsoft.gpg > /dev/null"
+    "curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | sudo tee /usr/share/keyrings/microsoft.gpg > /dev/null" || return 1
   run_shell "Add VS Code apt repo" \
-    "echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main' | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null"
-  run_cmd "apt update" sudo apt-get update
-  run_cmd "Install VS Code" sudo apt-get -y install code
+    "echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main' | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null" || return 1
+  run_cmd "apt update" sudo apt-get update || true
+  run_cmd "Install VS Code" sudo apt-get -y install code || return 1
 }
 
 step_14_vscode_extensions() {
@@ -337,16 +336,16 @@ step_15_dbeaver() {
   msg "Reference: https://dbeaver.io/download/"
 
   run_shell "Import DBeaver GPG key" \
-    "curl -fsSL https://dbeaver.io/debs/dbeaver.gpg.key | gpg --dearmor | sudo tee /usr/share/keyrings/dbeaver.gpg > /dev/null"
+    "curl -fsSL https://dbeaver.io/debs/dbeaver.gpg.key | gpg --dearmor | sudo tee /usr/share/keyrings/dbeaver.gpg > /dev/null" || return 1
   run_shell "Add DBeaver apt repo" \
-    "echo 'deb [signed-by=/usr/share/keyrings/dbeaver.gpg] https://dbeaver.io/debs/dbeaver/ /' | sudo tee /etc/apt/sources.list.d/dbeaver.list > /dev/null"
-  run_cmd "apt update" sudo apt-get update
-  run_cmd "Install DBeaver Community" sudo apt-get -y install dbeaver-ce
+    "echo 'deb [signed-by=/usr/share/keyrings/dbeaver.gpg] https://dbeaver.io/debs/dbeaver/ /' | sudo tee /etc/apt/sources.list.d/dbeaver.list > /dev/null" || return 1
+  run_cmd "apt update" sudo apt-get update || true
+  run_cmd "Install DBeaver Community" sudo apt-get -y install dbeaver-ce || return 1
 }
 
 step_16_flatseal() {
-  run_cmd "Add Flathub repo" sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-  run_cmd "Install Flatseal" sudo flatpak install -y flathub com.github.tchx84.Flatseal
+  run_cmd "Add Flathub repo" sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo || return 1
+  run_cmd "Install Flatseal" sudo flatpak install -y flathub com.github.tchx84.Flatseal || return 1
 }
 
 step_17_brave() {
@@ -357,28 +356,28 @@ step_17_brave() {
     msg "Brave already installed. Skipping."
   else
     run_cmd "Import Brave GPG key" sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg \
-      https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+      https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg || return 1
     run_shell "Add Brave apt repo" \
-      "echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main' | sudo tee /etc/apt/sources.list.d/brave-browser-release.list >/dev/null"
-    run_cmd "apt update" sudo apt-get update
-    run_cmd "Install Brave" sudo apt-get -y install brave-browser
+      "echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main' | sudo tee /etc/apt/sources.list.d/brave-browser-release.list >/dev/null" || return 1
+    run_cmd "apt update" sudo apt-get update || true
+    run_cmd "Install Brave" sudo apt-get -y install brave-browser || return 1
   fi
 
   printf "Set Brave as default browser? [y/N]: "
-  read -r yn
+  read -r yn || true
   if [[ "${yn,,}" == "y" ]]; then
-    run_cmd "Set Brave as default" xdg-mime default brave-browser.desktop x-scheme-handler/http x-scheme-handler/https x-scheme-handler/ftp
+    run_cmd "Set Brave as default" xdg-mime default brave-browser.desktop x-scheme-handler/http x-scheme-handler/https x-scheme-handler/ftp || return 1
     msg "Brave set as default browser."
   fi
 }
 
 step_18_fonts() {
   if ! command -v debconf-set-selections >/dev/null 2>&1; then
-    run_cmd "Install debconf-utils" sudo apt-get -y install debconf-utils
+    run_cmd "Install debconf-utils" sudo apt-get -y install debconf-utils || return 1
   fi
   run_shell "Pre-accept Microsoft fonts EULA" \
-    "sudo bash -c \"echo 'ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula boolean true' | debconf-set-selections\""
-  run_shell "Install Microsoft core fonts" "sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ttf-mscorefonts-installer"
+    "sudo bash -c \"echo 'ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula boolean true' | debconf-set-selections\"" || return 1
+  run_shell "Install Microsoft core fonts" "sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ttf-mscorefonts-installer" || return 1
 }
 
 step_19_stacer() {
@@ -386,7 +385,7 @@ step_19_stacer() {
   msg "Reference: https://github.com/QuentiumYT/Stacer"
 
   run_cmd "Install Stacer Qt5 runtime dependencies" sudo apt-get -y install \
-    libqt5widgets5 libqt5charts5 libqt5network5 libqt5dbus5
+    libqt5widgets5 libqt5charts5 libqt5network5 libqt5dbus5 || return 1
 
   local api_url="https://api.github.com/repos/QuentiumYT/Stacer/releases/latest"
   local deb_url
@@ -403,30 +402,29 @@ step_19_stacer() {
 }
 
 step_20_ulauncher() {
-  run_cmd "Install software-properties-common (for add-apt-repository)" sudo apt-get -y install software-properties-common
-  run_cmd "Add Ulauncher PPA" sudo add-apt-repository -y ppa:agornostal/ulauncher
-  run_cmd "apt update" sudo apt-get update
-  run_cmd "Install Ulauncher" sudo apt-get -y install ulauncher
+  run_cmd "Install software-properties-common (for add-apt-repository)" sudo apt-get -y install software-properties-common || return 1
+  run_cmd "Add Ulauncher PPA" sudo add-apt-repository -y ppa:agornostal/ulauncher || return 1
+  run_cmd "Install Ulauncher" sudo apt-get -y install ulauncher || return 1
   msg "Ulauncher installed. Start with: ulauncher --hide-window"
   msg "Add to Startup Applications for auto-launch on login."
 }
 
 step_21_clipboard_manager() {
-  run_cmd "Install CopyQ" sudo apt-get -y install copyq
+  run_cmd "Install CopyQ" sudo apt-get -y install copyq || return 1
 }
 
 step_22_timeshift() {
-  run_cmd "Install Timeshift" sudo apt-get -y install timeshift
-  msg "Timeshift installed. Launching GUI (requires sudo)..."
+  run_cmd "Install Timeshift" sudo apt-get -y install timeshift || return 1
+  msg "Timeshift installed. Launching GUI to configure snapshots..."
   if command -v timeshift-gtk >/dev/null 2>&1; then
-    sudo timeshift-gtk &
+    sudo timeshift-gtk || true
   else
     msg "Open Timeshift from menu to configure snapshots."
   fi
 }
 
 step_23_backup_personal() {
-  run_cmd "Install backup apps (Pika Backup, luckyBackup)" sudo apt-get -y install pika-backup luckybackup
+  run_cmd "Install backup apps (Pika Backup, luckyBackup)" sudo apt-get -y install pika-backup luckybackup || return 1
   msg "Set 3-2-1 backup policy manually after install."
 }
 
@@ -435,11 +433,11 @@ step_24_dropbox() {
   msg "Reference: https://www.dropbox.com/install-linux"
 
   run_shell "Import Dropbox GPG key" \
-    "curl -fsSL https://linux.dropboxstatic.com/ubuntu/debian/apt.dropbox.com.asc | sudo gpg --dearmor -o /usr/share/keyrings/dropbox.gpg"
+    "curl -fsSL https://linux.dropboxstatic.com/ubuntu/debian/apt.dropbox.com.asc | sudo gpg --dearmor -o /usr/share/keyrings/dropbox.gpg" || return 1
   run_shell "Add Dropbox apt repo" \
-    "echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/dropbox.gpg] https://linux.dropboxstatic.com/ubuntu noble main' | sudo tee /etc/apt/sources.list.d/dropbox.list >/dev/null"
-  run_cmd "apt update" sudo apt-get update
-  run_cmd "Install Dropbox" sudo apt-get -y install dropbox
+    "echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/dropbox.gpg] https://linux.dropboxstatic.com/ubuntu noble main' | sudo tee /etc/apt/sources.list.d/dropbox.list >/dev/null" || return 1
+  run_cmd "apt update" sudo apt-get update || true
+  run_cmd "Install Dropbox" sudo apt-get -y install dropbox || return 1
   msg "Start Dropbox: dropbox start -i"
 }
 
