@@ -5,7 +5,7 @@ set -u
 # https://www.reallinuxuser.com/21-best-things-to-do-after-installing-linux-mint/
 #
 # Behavior:
-# - Runs actions in logical order: hardware → OS settings → dev tools → apps → sync/backup
+# - Runs actions in logical order: storage → hardware → OS settings → dev tools → apps → sync/backup
 # - Prompts per step: run, skip, quit.
 # - Fails individually per step, continues to next step. All errors logged.
 
@@ -84,6 +84,100 @@ ask_step() {
       *) echo "Invalid input. Use r/s/q." ;;
     esac
   done
+}
+
+step_00_storage() {
+  msg "Storage partition scanner — mounts a partition permanently."
+  msg "Scans for unmounted partitions with labels, lets you pick one."
+
+  if ! command -v lsblk >/dev/null 2>&1; then
+    msg "lsblk not found. Install util-linux first."
+    return 1
+  fi
+
+  msg "Available unmounted partitions with labels (excluding loop devices):"
+  echo ""
+
+  local -a candidates=()
+  local -a candidate_uuids=()
+  local -a candidate_fstypes=()
+  local idx=0
+
+  while IFS= read -r line; do
+    local name size fstype label mount
+    name=$(echo "$line" | awk '{print $1}')
+    size=$(echo "$line" | awk '{print $2}')
+    fstype=$(echo "$line" | awk '{print $3}')
+    label=$(echo "$line" | awk '{print $4}')
+    mount=$(echo "$line" | awk '{print $5}')
+
+    if [[ "$mount" == "" ]] && [[ -n "$label" ]] && [[ "$fstype" != "swap" ]]; then
+      local uuid
+      uuid=$(lsblk -no UUID "/dev/${name}" 2>/dev/null || true)
+      ((idx++))
+      printf "  [%d] /dev/%-10s  %-8s  %-12s  LABEL=%s\n" "$idx" "$name" "$size" "$fstype" "$label"
+      candidates+=("/dev/${name}")
+      candidate_uuids+=("${uuid}")
+      candidate_fstypes+=("${fstype}")
+    fi
+  done < <(lsblk -no NAME,SIZE,FSTYPE,LABEL,MOUNTPOINT | grep -v '^loop' | grep -v '^NAME')
+
+  if (( idx == 0 )); then
+    msg "No unmounted labeled partitions found. Everything already mounted."
+    return 0
+  fi
+
+  echo ""
+  printf "Choose partition number [1-%d] or press Enter to skip: " "$idx"
+  read -r choice
+  if [[ -z "$choice" ]]; then
+    msg "SKIP: Storage partition setup."
+    return 0
+  fi
+
+  if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > idx )); then
+    msg "Invalid choice. Skipping."
+    return 0
+  fi
+
+  local selected_dev="${candidates[$((choice-1))]}"
+  local selected_uuid="${candidate_uuids[$((choice-1))]}"
+  local selected_fs="${candidate_fstypes[$((choice-1))]}"
+  msg "Selected: ${selected_dev} (UUID=${selected_uuid}, fs=${selected_fs})"
+
+  printf "Mount point (e.g. /Z, /media/x1c13/Storage): "
+  read -r mount_point
+  if [[ -z "$mount_point" ]]; then
+    msg "No mount point given. Skipping."
+    return 0
+  fi
+
+  [[ "$mount_point" != /* ]] && mount_point="/${mount_point}"
+
+  if [[ -d "$mount_point" ]]; then
+    msg "Mount point ${mount_point} already exists."
+  else
+    run_cmd "Create mount point ${mount_point}" sudo mkdir -p "$mount_point" || return 1
+  fi
+
+  if grep -q "^UUID=${selected_uuid}" /etc/fstab 2>/dev/null; then
+    msg "UUID ${selected_uuid} already in /etc/fstab. Updating entry..."
+    run_shell "Update fstab entry" \
+      "sudo sed -i '/^UUID=${selected_uuid}/d' /etc/fstab && echo 'UUID=${selected_uuid} ${mount_point} ${selected_fs} defaults,nosuid,nodev,relatime,x-gvfs-show 0 2' | sudo tee -a /etc/fstab" || return 1
+  else
+    run_shell "Add to /etc/fstab" \
+      "echo 'UUID=${selected_uuid} ${mount_point} ${selected_fs} defaults,nosuid,nodev,relatime,x-gvfs-show 0 2' | sudo tee -a /etc/fstab" || return 1
+  fi
+
+  run_cmd "Mount ${mount_point}" sudo mount "$mount_point" || return 1
+  msg "Partition mounted at ${mount_point}. Persists across reboots."
+
+  printf "Display mount info for Wine/Sync apps? This partition maps to:\n"
+  printf "  Wine drive:  Z: (always Linux root /)\n"
+  printf "  Full path:   Z:${mount_point}\n"
+  if [[ -d "${mount_point}/Sync" ]]; then
+    msg "Sync folder found: Z:${mount_point}/Sync"
+  fi
 }
 
 step_01_mirrors() {
@@ -451,8 +545,11 @@ step_25_expandrive() {
 
 main() {
   msg "Linux Mint post-install started. Log: ${LOG_FILE}"
-  msg "Order: hardware/kernel → OS settings → dev tools → apps (+ sync/backup)"
+  msg "Order: storage → hardware/kernel → OS settings → dev tools → apps (+ sync/backup)"
   msg "Tip: Ctrl+C once skips current step; Ctrl+C twice exits script."
+
+  # Storage & Mounting
+  if ask_step "0) Set up Storage partition (scan, mount, fstab)"; then step_00_storage || msg "WARN: step failed, continuing."; fi
 
   # Hardware & Kernel
   if ask_step "1) Change to nearby update servers"; then step_01_mirrors || msg "WARN: step failed, continuing."; fi
