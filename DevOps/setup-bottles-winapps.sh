@@ -33,6 +33,12 @@ bottles() {
 
 msg "Bottles winapps bottle setup started. Log: ${LOG_FILE}"
 
+# ─── Step 0: Grant Flatpak filesystem access ───
+msg "Granting Flatpak filesystem access to /Z (Sync storage)..."
+flatpak override --user --filesystem=/Z com.usebottles.bottles 2>/dev/null \
+  && msg "  ✓ /Z access granted" \
+  || warn "  Could not grant /Z access"
+
 # ─── Step 1: Install Bottles ───
 if ! flatpak list 2>/dev/null | grep -q com.usebottles.bottles; then
   msg "Installing Bottles..."
@@ -212,7 +218,7 @@ done
 
 msg ""
 msg "Missing deps?  Open Bottles GUI → ${BOTTLE_NAME} → Dependencies"
-msg "Sync folder?   Update cfg.db prefs: sharedfolder = Z:<mount>/Sync"
+msg "Sync folder?   Update cfg.db prefs: sharedfolder = Z:/Z/Sync"
 msg "Launch:        bottles run -p <name> -b ${BOTTLE_NAME}"
 msg "Log:           ${LOG_FILE}"
 msg "═══════════════════════════════════════"
